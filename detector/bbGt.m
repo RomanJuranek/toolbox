@@ -139,7 +139,7 @@ end
 fclose(fid);
 end
 
-function [objs,bbs] = bbLoad( fName, varargin )
+function [objs,bbs,K] = bbLoad( fName, varargin ) % K added by R.Juranek
 % Load bb annotation from text file and filter.
 %
 % FORMAT: Specify 'format' to indicate the format of the ground truth.
@@ -181,12 +181,12 @@ function [objs,bbs] = bbLoad( fName, varargin )
 % a fixed aspect ratio using bbs=bbApply('squarify',bbs,squarify{:}).
 %
 % USAGE
-%  [objs,bbs] = bbGt( 'bbLoad', fName, [pLoad] )
+%  [objs,bbs,K] = bbGt( 'bbLoad', fName, [pLoad] ) % K added by R.Juranek
 %
 % INPUTS
 %  fName    - name of text file
 %  pLoad    - parameters (struct or name/value pairs)
-%   .format   - [0] gt format 0:default, 1:PASCAL, 2:ImageNet
+%   .format   - [0] gt format 0:default, 1:PASCAL, 2:ImageNet, 3:KITTI
 %   .ellipse  - [1] controls how oriented bb is converted to regular bb
 %   .squarify - [] controls optional reshaping of bbs to fixed aspect ratio
 %   .lbls     - [] return objs with these labels (or [] to return all)
@@ -199,10 +199,12 @@ function [objs,bbs] = bbLoad( fName, varargin )
 %   .xRng     - [] range of x coordinates of bb extent
 %   .yRng     - [] range of y coordinates of bb extent
 %   .vRng     - [] range of acceptable obj occlusion levels
+%   .level    - [3] 0 - easy, 1 - moderate, 2 - hard, 3 - all. Valid for KITTI (format = 3) % by R.Juranek
 %
 % OUTPUTS
 %  objs     - loaded objects
 %  bbs      - [nx5] array containg ground truth bbs [x y w h ignore]
+%  K        - [mx1] logical with indices of actually loaded entries
 %
 % EXAMPLE
 %
@@ -210,8 +212,8 @@ function [objs,bbs] = bbLoad( fName, varargin )
 
 % get parameters
 df={'format',0,'ellipse',1,'squarify',[],'lbls',[],'ilbls',[],'hRng',[],...
-  'wRng',[],'aRng',[],'arRng',[],'oRng',[],'xRng',[],'yRng',[],'vRng',[]};
-[format,ellipse,sqr,lbls,ilbls,hRng,wRng,aRng,arRng,oRng,xRng,yRng,vRng]...
+  'wRng',[],'aRng',[],'arRng',[],'oRng',[],'xRng',[],'yRng',[],'vRng',[],'level',3}; % level added
+[format,ellipse,sqr,lbls,ilbls,hRng,wRng,aRng,arRng,oRng,xRng,yRng,vRng,lvl]... % lvl added
   = getPrmDflt(varargin,df,1);
 
 % load objs
@@ -256,6 +258,31 @@ elseif( format==2 )
     bb=os(i).bndbox; bb=str2double({bb.xmin bb.ymin bb.xmax bb.ymax});
     bb(3)=bb(3)-bb(1); bb(4)=bb(4)-bb(2); objs(i).bb=bb;
     objs(i).lbl=os(i).name;
+  end
+elseif(format == 3) % Update by M.Dubska, Roman Juranek
+  % load objs stored in KITTI format
+  if(exist('readKITTIlabels.m','file')~=2) error('bbLoad() requires the KITTI code.'); end
+  os=readKITTIlabels(fName);
+  n=length(os); objs=create(n);
+  for i=1:n
+    bb(1) = min(os(i).x1,os(i).x2);
+    bb(2) = min(os(i).y1,os(i).y2);
+    bb(3) = abs(os(i).x1 - os(i).x2);
+    bb(4) = abs(os(i).y1-os(i).y2);    
+    objs(i).bb=bb;
+    objs(i).lbl = os(i).type;
+    if (~strcmp(os(i).type, 'DontCare') && ~strcmp(os(i).type, 'Misc'))
+        objs(i).ign = 1;
+        if (bb(4) > 40 && os(i).occlusion == 0 && os(i).truncation <= 0.15 && lvl == 0)
+            objs(i).ign = 0;
+        elseif (bb(4) > 25 && os(i).occlusion < 2 && os(i).truncation <= 0.3 && lvl == 1)
+            objs(i).ign = 0;
+        elseif (bb(4) > 25 && os(i).truncation <= 0.5 && lvl == 2)
+            objs(i).ign = 0;
+        elseif lvl == 3
+            objs(i).ign = 0;
+        end
+    end
   end
 else error('bbLoad() unknown format: %i',format);
 end
