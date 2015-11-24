@@ -10,11 +10,12 @@ using namespace std;
 
 typedef unsigned int uint32;
 
-inline void getChild( float *chns1, uint32 *cids, uint32 *fids,
+inline void getChild( float *chns1, uint32 *cids, uint32 *fids1, uint32 *fids2,
   float *thrs, uint32 offset, uint32 &k0, uint32 &k )
 {
-  float ftr = chns1[cids[fids[k]]];
-  k = (ftr<thrs[k]) ? 1 : 2;
+  float ftr1 = chns1[cids[fids1[k]]];
+  float ftr2 = chns1[cids[fids2[k]]];
+  k = ((ftr1-ftr2)<thrs[k]) ? 1 : 2;
   k0=k+=k0*2; k+=offset;
 }
 
@@ -32,7 +33,8 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
   // extract relevant fields from trees
   float *thrs = (float*) mxGetData(mxGetField(trees,0,"thrs"));
   float *hs = (float*) mxGetData(mxGetField(trees,0,"hs"));
-  uint32 *fids = (uint32*) mxGetData(mxGetField(trees,0,"fids"));
+  uint32 *fids1 = (uint32*) mxGetData(mxGetField(trees,0,"fids1"));
+  uint32 *fids2 = (uint32*) mxGetData(mxGetField(trees,0,"fids2"));
   uint32 *child = (uint32*) mxGetData(mxGetField(trees,0,"child"));
   const int treeDepth = mxGetField(trees,0,"treeDepth")==NULL ? 0 :
     (int) mxGetScalar(mxGetField(trees,0,"treeDepth"));
@@ -64,15 +66,15 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
       // specialized case for treeDepth==1
       for( int t = 0; t < nTrees; t++ ) {
         uint32 offset=t*nTreeNodes, k=offset, k0=0;
-        getChild(chns1,cids,fids,thrs,offset,k0,k);
+        getChild(chns1,cids,fids1,fids2,thrs,offset,k0,k);
         h += hs[k]; if( h<=cascThr ) break;
       }
     } else if( treeDepth==2 ) {
       // specialized case for treeDepth==2
       for( int t = 0; t < nTrees; t++ ) {
         uint32 offset=t*nTreeNodes, k=offset, k0=0;
-        getChild(chns1,cids,fids,thrs,offset,k0,k);
-        getChild(chns1,cids,fids,thrs,offset,k0,k);
+        getChild(chns1,cids,fids1,fids2,thrs,offset,k0,k);
+        getChild(chns1,cids,fids1,fids2,thrs,offset,k0,k);
         h += hs[k]; if( h<=cascThr ) break;
       }
     } else if( treeDepth>2) {
@@ -80,7 +82,7 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
       for( int t = 0; t < nTrees; t++ ) {
         uint32 offset=t*nTreeNodes, k=offset, k0=0;
         for( int i=0; i<treeDepth; i++ )
-          getChild(chns1,cids,fids,thrs,offset,k0,k);
+          getChild(chns1,cids,fids1,fids2,thrs,offset,k0,k);
         h += hs[k]; if( h<=cascThr ) break;
       }
     } else {
@@ -88,8 +90,9 @@ void mexFunction( int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[] )
       for( int t = 0; t < nTrees; t++ ) {
         uint32 offset=t*nTreeNodes, k=offset, k0=k;
         while( child[k] ) {
-          float ftr = chns1[cids[fids[k]]];
-          k = (ftr<thrs[k]) ? 1 : 0;
+          float ftr1 = chns1[cids[fids1[k]]];
+          float ftr2 = chns1[cids[fids2[k]]];
+          k = ((ftr1-ftr2)<thrs[k]) ? 1 : 0;
           k0 = k = child[k0]-k+offset;
         }
         h += hs[k]; if( h<=cascThr ) break;
