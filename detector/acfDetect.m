@@ -70,12 +70,16 @@ if(isfield(opts,'filters') && ~isempty(opts.filters)), shrink=shrink*2;
     P.data{i}=imResample(C,.5);
   end
 end
+fdetect = cell(1,nDs);
+for j=1:nDs
+    if isfield(Ds{j}.clf,'fids1'), fdetect{j}=@acfDetect1;
+    else fdetect{j}=@acfDetect2; end;
+end;
 % apply sliding window classifiers
 for i=1:P.nScales
   for j=1:nDs, opts=Ds{j}.opts;
     modelDsPad=opts.modelDsPad; modelDs=opts.modelDs;
-    bb = acfDetect1(P.data{i},Ds{j}.clf,shrink,...
-      modelDsPad(1),modelDsPad(2),opts.stride,opts.cascThr);
+    bb = feval(fdetect{j}, P.data{i},Ds{j}.clf,shrink,modelDsPad(1),modelDsPad(2),opts.stride,opts.cascThr);
     shift=(modelDsPad-modelDs)/2-pad;
     bb(:,1)=(bb(:,1)+shift(2))/P.scaleshw(i,2);
     bb(:,2)=(bb(:,2)+shift(1))/P.scaleshw(i,1);
