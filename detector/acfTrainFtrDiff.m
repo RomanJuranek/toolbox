@@ -1,4 +1,4 @@
-function detector = acfTrain( varargin )
+function detector = acfTrainFtrDiff( varargin )
 % Train aggregate channel features object detector.
 %
 % Train aggregate channel features (ACF) object detector as described in:
