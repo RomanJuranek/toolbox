@@ -410,7 +410,7 @@ usePnts=0; imgApi.setImgDir(imgDir);
     function setImgDir( imgDir1 )
       objApi.closeAnn(); imgDir=imgDir1;
       imgFiles=[dir([imgDir '/*.jpg']); dir([imgDir '/*.jpeg']); ...
-        dir([imgDir '/*.png']); dir([imgDir '/*.tif']); dir([imgDir '/*.bmp'])];
+        dir([imgDir '/*.png']); dir([imgDir '/*.tif']); dir([imgDir '/*.bmp']);  dir([imgDir '/*.JPG'])];
       imgFiles={imgFiles.name}; nImg=length(imgFiles); setImg(1);
       set(pTop.hImgNum,'String',['/' int2str(nImg)]);
     end
